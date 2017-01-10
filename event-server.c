@@ -1,24 +1,23 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <sys/epoll.h>
 #include <stdio.h>
 #include <strings.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "event-server.h"
 
-// max number of clients we can serve simultaneously
 #define MAX_CLIENTS 5
-
-// max possible number of events ready for I/O after
-// an epoll_wait
-#define MAX_EPOLL_EVENTS 1 + MAX_CLIENTS * 2
+#define MAX_EPOLL_EVENTS 1 + MAX_CLIENTS
 
 const char* LISTEN_ADDR = "0.0.0.0";
 const int LISTEN_PORT = 8080;
 const char* CONTENT_DIR = "./content";
 
-int make_listener_socket() {
+inline int make_listener_socket() {
 
 	int listener = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, IPPROTO_TCP);
 
@@ -34,7 +33,39 @@ int make_listener_socket() {
 	return listener;
 }
 
+inline char* extract_pathname(const char* buf, const char* buff_term) {
+
+	// stupidly-simple Http-(ish) request parser, looks for a 'GET ' then if so,
+	// reads characters until the next space and returns that
+
+	if (buff_term - buf < 6)
+		return 0;
+
+	if (strncmp("GET ", buf, 4) != 0)
+		return 0;
+
+	char* start = (char*)buf + 4;
+	char* end = start;
+
+	while (end < buff_term) {
+		end++;
+
+		if (*end == ' ') {
+			*end = '\0';
+			return start;
+		}
+	}
+
+	return 0;
+}
+
 void serve(const char* listen_addr, const int listen_port, const char* content_dir) {
+
+	// change into content dir
+	if (chdir(content_dir) == -1) {
+		fprintf(stderr, "failure to change into content directory");
+		return;
+	}
 
 	// create a non-blocking listener socket
 	int listener = make_listener_socket();
@@ -108,12 +139,12 @@ void serve(const char* listen_addr, const int listen_port, const char* content_d
 
 				if (!the_client) {
 					printf("using a fresh client\n");
-					the_client = &clients[++max_client_index];
+					the_client = clients + (++max_client_index);
 					fd_client_map[client_fd] = the_client;
 				}
 
 				// reset the client object
-				the_client->in_buff_pos = 0;
+				the_client->in_buff_term = the_client->in_buff;
 
 				// add client_fd to the epoll instance
 				event.data.fd = client_fd;
@@ -129,21 +160,6 @@ void serve(const char* listen_addr, const int listen_port, const char* content_d
 				int client_fd = events[i].data.fd;
 				client* the_client = fd_client_map[client_fd];
 
-				if (events[i].events & EPOLLIN) {
-					printf("epollin event from %d\n", client_fd);
-
-					ssize_t br = read(client_fd, the_client->in_buff + the_client->in_buff_pos, sizeof the_client->in_buff - the_client->in_buff_pos);
-					printf("read %u bytes from client_fd %d\n", (unsigned int)br, client_fd);
-					the_client->in_buff_pos += br;
-
-					the_client->in_buff[the_client->in_buff_pos] = '\0';
-					printf("buffer now contains: %s", the_client->in_buff);
-				}
-
-				if (events[i].events & EPOLLOUT) {
-					printf("epollout event from %d\n", client_fd);
-				}
-
 				if (events[i].events & EPOLLRDHUP) {
 					printf("epollrdhup event from %d\n", client_fd);
 
@@ -153,6 +169,34 @@ void serve(const char* listen_addr, const int listen_port, const char* content_d
 
 					nclients--;
 					printf("Client Disconnected (fd=%d, max_client_index=%d nclients=%d)\n", client_fd, max_client_index, nclients);
+				}
+				else if (events[i].events & EPOLLIN) {
+					printf("epollin event from %d\n", client_fd);
+
+					int buff_left = sizeof the_client->in_buff - (the_client->in_buff_term - the_client->in_buff);
+
+					ssize_t br = read(client_fd, the_client->in_buff_term, buff_left);
+					printf("read %u bytes from client_fd %d\n", (unsigned int)br, client_fd);
+					the_client->in_buff_term += br;
+
+					// attempt to extract a path from what was read
+					char* pathname = extract_pathname(the_client->in_buff, the_client->in_buff_term);
+
+					if (pathname) {
+						printf("  got pathname '%s'\n", pathname);
+
+						int file_fd = open(pathname, O_RDONLY);
+
+						if (file_fd == -1) {
+							printf("   failed to open\n");
+						} else {
+							printf("   opened\n");
+
+							
+							
+							close(file_fd);
+						}
+					}
 				}
 			}
 		}
