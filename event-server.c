@@ -12,6 +12,7 @@
 
 #define MAX_CLIENTS 5
 #define MAX_EPOLL_EVENTS 1 + MAX_CLIENTS
+#define RESPONSE "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 5\n\nHello"
 
 const char* LISTEN_ADDR = "0.0.0.0";
 const int LISTEN_PORT = 8080;
@@ -169,8 +170,7 @@ void serve(const char* listen_addr, const int listen_port, const char* content_d
 
 					nclients--;
 					printf("Client Disconnected (fd=%d, max_client_index=%d nclients=%d)\n", client_fd, max_client_index, nclients);
-				}
-				else if (events[i].events & EPOLLIN) {
+				} else if (events[i].events & EPOLLIN) {
 					printf("epollin event from %d\n", client_fd);
 
 					int buff_left = sizeof the_client->in_buff - (the_client->in_buff_term - the_client->in_buff);
@@ -192,11 +192,16 @@ void serve(const char* listen_addr, const int listen_port, const char* content_d
 						} else {
 							printf("   opened\n");
 
+							ssize_t bw = write(client_fd, RESPONSE, sizeof RESPONSE);
+							printf("wrote %u/%lu bytes from client_fd %d\n", (unsigned int)bw, sizeof RESPONSE, client_fd);
 							
-							
+							// TODO: fix the response
+
 							close(file_fd);
 						}
 					}
+				} else if (events[i].events & EPOLLOUT) {
+					printf("epollout event from %d\n", client_fd);
 				}
 			}
 		}
