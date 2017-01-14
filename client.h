@@ -3,7 +3,7 @@
 #define CLIENT_INPUT_BUFFER_SIZE 1000
 
 #define STAGE_HEADERS 0
-#define STAGE_BODY 1
+#define STAGE_CONTENT 1
 
 
 typedef struct client {
@@ -14,6 +14,10 @@ typedef struct client {
 	// pointer to character after the last
 	// byte read into in_buff
 	char* in_buff_term;
+
+	// pointer to output
+	char* out_ptr;
+	char* out_term;
 
 	// which stage of the request this client is currently in (see above)
 	int stage;

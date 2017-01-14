@@ -187,10 +187,16 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 					printf("epollin event from %d\n", client_fd);
 
 					int buff_left = sizeof(the_client->in_buff) - (the_client->in_buff_term - the_client->in_buff);
-					the_client->in_buff_term += read(client_fd, the_client->in_buff_term, buff_left);
 
 					// TODO - handle buffer full by sending a HTTP 413 then closing the socket
 
+					ssize_t br = read(client_fd, the_client->in_buff_term, buff_left);
+
+					if (br < 0) {
+						// TODO - handle error
+					} else {
+						the_client->in_buff_term += br;
+					}
 
 					// attempt to extract a path from what was read
 					char* pathname = extract_pathname(the_client->in_buff, the_client->in_buff_term);
@@ -210,6 +216,11 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 								printf("    sent all 404 response\n");
 								close(client_fd);
 								nclients--;
+							} else if (bw < sizeof(RESPONSE_HEADERS_404)) {
+								the_client->out_ptr = RESPONSE_HEADERS_404 + bw;
+								the_client->out_term = RESPONSE_HEADERS_404 + sizeof(RESPONSE_HEADERS_404);
+							} else {
+								// TODO - handle error
 							}
 						} else {
 							printf("   200 opened file\n");
@@ -220,6 +231,15 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 					}
 				} else if (events[i].events & EPOLLOUT) {
 					printf("epollout event from %d\n", client_fd);
+
+					switch (the_client->stage) {
+						case STAGE_HEADERS:
+							
+						break;
+
+						case STAGE_CONTENT:
+						break;
+					}
 				}
 			}
 		}
