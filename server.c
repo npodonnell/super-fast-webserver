@@ -8,15 +8,12 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "event-server.h"
+#include "server.h"
+#include "client.h"
 
-#define MAX_CLIENTS 5
-#define MAX_EPOLL_EVENTS 1 + MAX_CLIENTS
+// temporary!!!
 #define RESPONSE "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 5\n\nHello"
 
-const char* LISTEN_ADDR = "0.0.0.0";
-const int LISTEN_PORT = 8080;
-const char* CONTENT_DIR = "./content";
 
 inline int make_listener_socket() {
 
@@ -60,7 +57,7 @@ inline char* extract_pathname(const char* buf, const char* buff_term) {
 	return 0;
 }
 
-void serve(const char* listen_addr, const int listen_port, const char* content_dir) {
+void serve(const char* listen_addr, const int listen_port, const int listen_backlog, const int max_clients, const char* content_dir) {
 
 	// change into content dir
 	if (chdir(content_dir) == -1) {
@@ -89,7 +86,7 @@ void serve(const char* listen_addr, const int listen_port, const char* content_d
 	}
 
 	// listen
-	if (listen(listener, 1) != 0) {
+	if (listen(listener, listen_backlog) != 0) {
 		fprintf(stderr, "failure to listen");
 		return;
 	}
@@ -102,50 +99,67 @@ void serve(const char* listen_addr, const int listen_port, const char* content_d
 		return;
 	}
 
-	// register listener with epoll instance
-	struct epoll_event events[MAX_EPOLL_EVENTS];
+	// re-usable epoll_event object
 	struct epoll_event event;
 
+	// add listener to the epoll instance
 	event.data.fd = listener;
 	event.events = EPOLLIN|EPOLLET;
-
  	if (epoll_ctl(efd, EPOLL_CTL_ADD, listener, &event) == -1) {
  		fprintf(stderr, "epoll_ctl failure");
  		return;
  	}
 
- 	int max_client_index = -1;
- 	int nclients = 0;
- 	client clients[MAX_CLIENTS];
-	client* fd_client_map[efd + (MAX_CLIENTS * 2)];
+ 	// client pool
+ 	client* clients = (client*) malloc(sizeof(client) * max_clients);
 
-	bzero(&fd_client_map, sizeof fd_client_map);
+ 	// max possible events is 1 for the listener plus 2 per client
+	int max_epoll_events = 1 + (max_clients * 2);
+
+ 	// file descriptor -> client lookup array
+	client** fd_to_client = (client**) malloc(sizeof(client*) * (efd + max_epoll_events));
+
+	// epoll events array
+	struct epoll_event* events = (struct epoll_event*) malloc(sizeof(struct epoll_event) * max_epoll_events);
 
 	printf("serving files from %s on %s:%d\n", content_dir, listen_addr, listen_port);
 
+ 	int most_clients = 0;
+ 	int nclients = 0;
+
 	while (1) {
-		printf("polling...\n");
-		int n = epoll_wait(efd, events, MAX_EPOLL_EVENTS, -1);
+		printf("epolling...\n");
+		int n = epoll_wait(efd, events, max_epoll_events, -1);
 		printf("n=%d\n", n);
 
 		for (int i = 0; i < n; i++) {
 
-			printf(" i=%d fd=%d\n", i ,events[i].data.fd);
+			int fd = events[i].data.fd;
 
-			if (events[i].data.fd == listener) {
+			printf(" i=%d fd=%d\n", i , fd);
+
+			if (fd == listener) {
 				// new client
 
+				// TODO - get client's address
 				int client_fd = accept(listener, 0, 0);
-				client* the_client = fd_client_map[client_fd];
 
-				if (!the_client) {
+				if (nclients == max_clients) {
+					// enough clients already
+					close(client_fd);
+					continue;
+				}
+
+				client* the_client = fd_to_client[client_fd];
+
+				if (most_clients < max_clients) {
 					printf("using a fresh client\n");
-					the_client = clients + (++max_client_index);
-					fd_client_map[client_fd] = the_client;
+					the_client = clients + (most_clients++);
+					fd_to_client[client_fd] = the_client;
 				}
 
 				// reset the client object
-				the_client->in_buff_term = the_client->in_buff;
+				RESET_CLIENT(the_client);
 
 				// add client_fd to the epoll instance
 				event.data.fd = client_fd;
@@ -153,23 +167,25 @@ void serve(const char* listen_addr, const int listen_port, const char* content_d
 				epoll_ctl(efd, EPOLL_CTL_ADD, client_fd, &event);
 
 				nclients++;
-				printf("Accepted connection (fd=%d, max_client_index=%d nclients=%d)\n", client_fd, max_client_index, nclients);
+				printf("New client fd=%d, most_clients=%d nclients=%d\n", client_fd, most_clients, nclients);
 
 			} else {
 				// existing client
 
-				int client_fd = events[i].data.fd;
-				client* the_client = fd_client_map[client_fd];
+				int client_fd = fd;
+				client* the_client = fd_to_client[client_fd];
 
 				if (events[i].events & EPOLLRDHUP) {
 					printf("epollrdhup event from %d\n", client_fd);
 
 					// remove client_fd from the epoll instance and close the socket
-					epoll_ctl(efd, EPOLL_CTL_DEL, client_fd, &event);
+					// event parameter is ignored here
+					//epoll_ctl(efd, EPOLL_CTL_DEL, client_fd, &event);
 					close(client_fd);
 
 					nclients--;
-					printf("Client Disconnected (fd=%d, max_client_index=%d nclients=%d)\n", client_fd, max_client_index, nclients);
+					printf("New client fd=%d, most_clients=%d nclients=%d\n", client_fd, most_clients, nclients);
+
 				} else if (events[i].events & EPOLLIN) {
 					printf("epollin event from %d\n", client_fd);
 
@@ -206,12 +222,4 @@ void serve(const char* listen_addr, const int listen_port, const char* content_d
 			}
 		}
 	}
-}
-
-int main() {
-	printf("non-blocking event-based HTTP server\n");
-	printf("Noel P. O'Donnell, 2017\n");
-
-	serve(LISTEN_ADDR, LISTEN_PORT, CONTENT_DIR);
-	fprintf(stderr, "\n");
 }
