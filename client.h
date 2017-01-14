@@ -1,7 +1,10 @@
 #pragma once
 
 #define CLIENT_INPUT_BUFFER_SIZE 1000
-#define CLIENT_OUTPUT_BUFFER_SIZE 1000
+
+#define STAGE_HEADERS 0
+#define STAGE_BODY 1
+
 
 typedef struct client {
 
@@ -12,16 +15,8 @@ typedef struct client {
 	// byte read into in_buff
 	char* in_buff_term;
 
-	// input buffer
-	char out_buff[CLIENT_OUTPUT_BUFFER_SIZE];
-
-	// pointer to character after the last
-	// byte read into out_buff
-	char* out_buff_term;
-
-	// file descriptor for file currently being
-	// read on behalf of the client
-	int file_fd;
+	// which stage of the request this client is currently in (see above)
+	int stage;
 
 } client;
 

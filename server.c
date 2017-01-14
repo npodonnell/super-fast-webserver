@@ -11,9 +11,9 @@
 #include "server.h"
 #include "client.h"
 
-// temporary!!!
-#define RESPONSE "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 5\n\nHello"
-
+#define RESPONSE_HEADERS_200 "HTTP/1.1 200\nContent-Type:text/plain\nContent-Length:5\n\nHello"
+#define RESPONSE_HEADERS_404 "HTTP/1.1 404\nContent-Length:0\n\n"
+#define RESPONSE_HEADERS_413 "HTTP/1.1 413\nContent-Lenger:0\n\n"
 
 int make_listener_socket() {
 
@@ -130,14 +130,10 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 	while (1) {
 		printf("epolling...\n");
 		int n = epoll_wait(efd, events, max_epoll_events, -1);
-		printf("n=%d\n", n);
 
 		for (int i = 0; i < n; i++) {
 
 			int fd = events[i].data.fd;
-
-			printf(" i=%d fd=%d\n", i , fd);
-
 			if (fd == listener) {
 				// new client
 
@@ -150,11 +146,12 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 					continue;
 				}
 
+				nclients++;
 				client* the_client = fd_to_client[client_fd];
 
-				if (most_clients < max_clients) {
-					printf("using a fresh client\n");
-					the_client = clients + (most_clients++);
+				if (most_clients < nclients) {
+					most_clients = nclients;
+					the_client = clients + most_clients;
 					fd_to_client[client_fd] = the_client;
 				}
 
@@ -166,7 +163,6 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 				event.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLET;
 				epoll_ctl(efd, EPOLL_CTL_ADD, client_fd, &event);
 
-				nclients++;
 				printf("New client fd=%d, most_clients=%d nclients=%d\n", client_fd, most_clients, nclients);
 
 			} else {
@@ -178,42 +174,44 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 				if (events[i].events & EPOLLRDHUP) {
 					printf("epollrdhup event from %d\n", client_fd);
 
-					// remove client_fd from the epoll instance and close the socket
-					// event parameter is ignored here
-					//epoll_ctl(efd, EPOLL_CTL_DEL, client_fd, &event);
 					close(client_fd);
-
 					nclients--;
-					printf("New client fd=%d, most_clients=%d nclients=%d\n", client_fd, most_clients, nclients);
+
+					printf("Gone client fd=%d, most_clients=%d nclients=%d\n", client_fd, most_clients, nclients);
 
 				} else if (events[i].events & EPOLLIN) {
 					printf("epollin event from %d\n", client_fd);
 
-					int buff_left = sizeof the_client->in_buff - (the_client->in_buff_term - the_client->in_buff);
+					int buff_left = sizeof(the_client->in_buff) - (the_client->in_buff_term - the_client->in_buff);
+					the_client->in_buff_term += read(client_fd, the_client->in_buff_term, buff_left);
 
-					ssize_t br = read(client_fd, the_client->in_buff_term, buff_left);
-					printf("read %u bytes from client_fd %d\n", (unsigned int)br, client_fd);
-					the_client->in_buff_term += br;
+					// TODO - handle buffer full by sending a HTTP 413 then closing the socket
+
 
 					// attempt to extract a path from what was read
 					char* pathname = extract_pathname(the_client->in_buff, the_client->in_buff_term);
 
 					if (pathname) {
+						// we know what file the client wants
 						printf("  got pathname '%s'\n", pathname);
 
 						int file_fd = open(pathname, O_RDONLY);
 
 						if (file_fd == -1) {
-							printf("   failed to open\n");
+							printf("   404 failed to open file\n");
+
+							ssize_t bw = write(client_fd, RESPONSE_HEADERS_404, sizeof(RESPONSE_HEADERS_404));
+
+							if (bw == sizeof(RESPONSE_HEADERS_404)) {
+								printf("    sent all 404 response\n");
+								close(client_fd);
+								nclients--;
+							}
 						} else {
-							printf("   opened\n");
-
-							ssize_t bw = write(client_fd, RESPONSE, sizeof RESPONSE);
-							printf("wrote %u/%lu bytes from client_fd %d\n", (unsigned int)bw, sizeof RESPONSE, client_fd);
-							
-							// TODO: fix the response
-
+							printf("   200 opened file\n");
 							close(file_fd);
+
+							ssize_t bw = write(client_fd, RESPONSE_HEADERS_200, sizeof(RESPONSE_HEADERS_200));
 						}
 					}
 				} else if (events[i].events & EPOLLOUT) {
@@ -221,5 +219,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 				}
 			}
 		}
+
+		printf("------------------------------------\n");
 	}
 }
