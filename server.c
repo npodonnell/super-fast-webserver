@@ -202,39 +202,14 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 					char* pathname = extract_pathname(the_client->in_buff, the_client->in_buff_term);
 
 					if (pathname) {
-						// we know what file the client wants
-						printf("  got pathname '%s'\n", pathname);
 
-						int file_fd = open(pathname, O_RDONLY);
-
-						if (file_fd == -1) {
-							printf("   404 failed to open file\n");
-
-							ssize_t bw = write(client_fd, RESPONSE_HEADERS_404, sizeof(RESPONSE_HEADERS_404));
-
-							if (bw == sizeof(RESPONSE_HEADERS_404)) {
-								printf("    sent all 404 response\n");
-								close(client_fd);
-								nclients--;
-							} else if (bw < sizeof(RESPONSE_HEADERS_404)) {
-								the_client->out_ptr = RESPONSE_HEADERS_404 + bw;
-								the_client->out_term = RESPONSE_HEADERS_404 + sizeof(RESPONSE_HEADERS_404);
-							} else {
-								// TODO - handle error
-							}
-						} else {
-							printf("   200 opened file\n");
-							close(file_fd);
-
-							ssize_t bw = write(client_fd, RESPONSE_HEADERS_200, sizeof(RESPONSE_HEADERS_200));
-						}
 					}
 				} else if (events[i].events & EPOLLOUT) {
 					printf("epollout event from %d\n", client_fd);
 
 					switch (the_client->stage) {
 						case STAGE_HEADERS:
-							
+
 						break;
 
 						case STAGE_CONTENT:
