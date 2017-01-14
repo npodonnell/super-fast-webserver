@@ -142,17 +142,21 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 
 				if (nclients == max_clients) {
 					// enough clients already
+					// TODO - instead shut down the listener so we don't have to deal with
+					// requests we can't serve
 					close(client_fd);
 					continue;
 				}
 
 				nclients++;
-				client* the_client = fd_to_client[client_fd];
+				client* the_client;
 
 				if (most_clients < nclients) {
-					most_clients = nclients;
 					the_client = clients + most_clients;
 					fd_to_client[client_fd] = the_client;
+					most_clients = nclients;
+				} else {
+					the_client = fd_to_client[client_fd];
 				}
 
 				// reset the client object
