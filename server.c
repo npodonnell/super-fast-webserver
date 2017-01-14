@@ -15,7 +15,7 @@
 #define RESPONSE "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 5\n\nHello"
 
 
-inline int make_listener_socket() {
+int make_listener_socket() {
 
 	int listener = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, IPPROTO_TCP);
 
@@ -31,7 +31,7 @@ inline int make_listener_socket() {
 	return listener;
 }
 
-inline char* extract_pathname(const char* buf, const char* buff_term) {
+char* extract_pathname(const char* buf, const char* buff_term) {
 
 	// stupidly-simple Http-(ish) request parser, looks for a 'GET ' then if so,
 	// reads characters until the next space and returns that
