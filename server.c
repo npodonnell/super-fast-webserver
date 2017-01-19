@@ -176,6 +176,8 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 				client* the_client = fd_to_client[client_fd];
 
 				if (events[i].events & EPOLLRDHUP) {
+					// client hung up
+
 					printf("epollrdhup event from %d\n", client_fd);
 
 					close(client_fd);
@@ -184,6 +186,8 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 					printf("Gone client fd=%d, most_clients=%d nclients=%d\n", client_fd, most_clients, nclients);
 
 				} else if (events[i].events & EPOLLIN) {
+					// read from client
+
 					printf("epollin event from %d\n", client_fd);
 
 					int buff_left = sizeof(the_client->in_buff) - (the_client->in_buff_term - the_client->in_buff);
@@ -201,10 +205,35 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 					// attempt to extract a path from what was read
 					char* pathname = extract_pathname(the_client->in_buff, the_client->in_buff_term);
 
-					if (pathname) {
+					if (!pathname)
+						goto next_fd;
 
+					// attempt to open the file
+					int file_fd = open(pathname, O_RDONLY);
+
+					the_client->stage = STAGE_HEADERS;
+
+					if (file_fd == -1) {
+						// 404 headers
+						memcpy(RESPONSE_HEADERS_404, the_client->out_buff, sizeof(RESPONSE_HEADERS_404));
+						the_client->out_buff_term = the_client->out_buff + sizeof(RESPONSE_HEADERS_404);
+
+						/* .. */
+					} else {
+						// 200 headers
+						memcpy(RESPONSE_HEADERS_200, the_client->out_buff, sizeof(RESPONSE_HEADERS_200));
+						the_client->out_buff_term = the_client->out_buff + sizeof(RESPONSE_HEADERS_200);
 					}
+
+					ssize_t bytes_to_write = the_client->out_buff_term - the_client->out_buff_cursor;
+					ssize_t bw = write(client_fd, the_client->out_buff_cursor, bytes_to_write);
+
+
+
+					
 				} else if (events[i].events & EPOLLOUT) {
+					// write to client
+					
 					printf("epollout event from %d\n", client_fd);
 
 					switch (the_client->stage) {
@@ -216,6 +245,8 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 						break;
 					}
 				}
+
+				next_fd:;
 			}
 		}
 
