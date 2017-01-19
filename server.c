@@ -217,9 +217,12 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 						// 404 headers
 						memcpy(RESPONSE_HEADERS_404, the_client->out_buff, sizeof(RESPONSE_HEADERS_404));
 						the_client->out_buff_term = the_client->out_buff + sizeof(RESPONSE_HEADERS_404);
-
-						/* .. */
 					} else {
+						// add file_fd to the epoll instance
+						event.data.fd = file_fd;
+						event.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLET;
+						epoll_ctl(efd, EPOLL_CTL_ADD, file_fd, &event);
+						
 						// 200 headers
 						memcpy(RESPONSE_HEADERS_200, the_client->out_buff, sizeof(RESPONSE_HEADERS_200));
 						the_client->out_buff_term = the_client->out_buff + sizeof(RESPONSE_HEADERS_200);
