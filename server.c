@@ -190,7 +190,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 
 					printf("epollin event from %d\n", client_fd);
 
-					int buff_left = sizeof(the_client->in_buff) - (the_client->in_buff_term - the_client->in_buff);
+					size_t buff_left = sizeof(the_client->in_buff) - (the_client->in_buff_term - the_client->in_buff);
 
 					// TODO - handle buffer full by sending a HTTP 413 then closing the socket
 
@@ -225,9 +225,15 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 						the_client->out_buff_term = the_client->out_buff + sizeof(RESPONSE_HEADERS_200);
 					}
 
-					ssize_t bytes_to_write = the_client->out_buff_term - the_client->out_buff_cursor;
+					size_t bytes_to_write = the_client->out_buff_term - the_client->out_buff_cursor;
 					ssize_t bw = write(client_fd, the_client->out_buff_cursor, bytes_to_write);
 
+					if (bw < 0) {
+						// TODO - handle error
+					} else {
+						the_client->out_buff_cursor += bw;
+					}
+					
 
 
 					
