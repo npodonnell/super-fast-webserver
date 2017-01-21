@@ -2,7 +2,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
+#include <sys/epoll.h>
 #include <stdio.h>
 #include <strings.h>
 #include <string.h>
@@ -11,10 +11,6 @@
 #include "server.h"
 #include "client.h"
 #include "ep.h"
-
-#define RESPONSE_HEADERS_200 "HTTP/1.1 200\nContent-Type:text/plain\nContent-Length:5\n\nHello"
-#define RESPONSE_HEADERS_404 "HTTP/1.1 404\nContent-Length:0\n\n"
-#define RESPONSE_HEADERS_413 "HTTP/1.1 413\nContent-Lenger:0\n\n"
 
 int make_listener_socket() {
 
@@ -32,7 +28,7 @@ int make_listener_socket() {
 	return listener;
 }
 
-int bind_and_listen(const int listener, const char listen_addr, const int listen_port, const int listen_backlog) {
+int bind_and_listen(const int listener, const char* listen_addr, const int listen_port, const int listen_backlog) {
 
 	// bind
 	struct sockaddr_in local_ep;
@@ -55,7 +51,7 @@ int bind_and_listen(const int listener, const char listen_addr, const int listen
 	return 0;
 }
 
-int get_listener(const char listen_addr, const int listen_port, const int listen_backlog) {
+int get_listener(const char* listen_addr, const int listen_port, const int listen_backlog) {
 
 	int listener = make_listener_socket();
 
@@ -65,32 +61,6 @@ int get_listener(const char listen_addr, const int listen_port, const int listen
 	}
 
 	return listener;
-}
-
-char* extract_pathname(const char* buf, const char* buff_term) {
-
-	// stupidly-simple Http-(ish) request parser, looks for a 'GET ' then if so,
-	// reads characters until the next space and returns that
-
-	if (buff_term - buf < 6)
-		return 0;
-
-	if (strncmp("GET ", buf, 4) != 0)
-		return 0;
-
-	char* start = (char*)buf + 4;
-	char* end = start;
-
-	while (end < buff_term) {
-		end++;
-
-		if (*end == ' ') {
-			*end = '\0';
-			return start;
-		}
-	}
-
-	return 0;
 }
 
 void serve(const char* listen_addr, const int listen_port, const int listen_backlog, const int max_clients, const char* content_dir) {
@@ -104,40 +74,29 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 	}
 
 	// create a non-blocking listener socket
-	int listener = get_listener();
+	int listener = get_listener(listen_addr, listen_port, listen_backlog);
 
 	if (listener == -1) {
 		fprintf(stderr, "failure to make socket\n");
 		return;
 	}
 
+ 	// max possible events is 1 for the listener plus 2 per client
+	int max_epoll_events = 1 + (max_clients * 2);
+
 	// create epoll instance
-	int efd = ep_init();
+	int efd = ep_init(max_epoll_events);
 
 	if (efd == -1) {
 		fprintf(stderr, "failure to create epoll instance\n");
 		return;
 	}
-/*
-	// re-usable epoll_event object
-	struct epoll_event event;
 
-	// add listener to the epoll instance
-	event.data.fd = listener;
-	event.events = EPOLLIN|EPOLLET;
- 	if (epoll_ctl(efd, EPOLL_CTL_ADD, listener, &event) == -1) {
- 		fprintf(stderr, "epoll_ctl failure");
- 		return;
- 	}
-*/
-
-	ep_add(efd, listener, EP_ROLL_LISTENER);
+	// add the listener
+	ep_add(efd, listener, EP_ROLE_LISTENER);
 
  	// client pool
- 	client* clients = (client*) malloc(sizeof(client) * max_clients);
-
- 	// max possible events is 1 for the listener plus 2 per client
-	int max_epoll_events = 1 + (max_clients * 2);
+ 	client* client_pool = (client*) malloc(sizeof(client) * max_clients);
 
  	// file descriptor -> client lookup array
 	client** fd_to_client = (client**) malloc(sizeof(client*) * (efd + max_epoll_events));
@@ -157,11 +116,14 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 		for (int i = 0; i < n; i++) {
 
 			int fd = events[i].data.fd;
+
 			if (fd == listener) {
 				// new client
 
 				// TODO - get client's address
 				int client_fd = accept(listener, 0, 0);
+
+				printf("new client: %d\n", client_fd);
 
 				if (nclients == max_clients) {
 					// enough clients already
@@ -175,7 +137,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 				client* the_client;
 
 				if (most_clients < nclients) {
-					the_client = clients + most_clients;
+					the_client = client_pool + most_clients;
 					fd_to_client[client_fd] = the_client;
 					most_clients = nclients;
 				} else {
@@ -185,12 +147,9 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 				// reset the client object
 				client_reset(the_client, client_fd);
 
-				// add client_fd to the epoll instance
-				//event.data.fd = client_fd;
-				//event.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLET;
-				//epoll_ctl(efd, EPOLL_CTL_ADD, client_fd, &event);
-
-				printf("New client fd=%d, most_clients=%d nclients=%d\n", client_fd, most_clients, nclients);
+				// add him to the epoll instance - TODO - experiment with leaving hung-up clients
+				// in the epoll
+				ep_add(efd, client_fd, EP_ROLE_CLIENT);
 
 			} else {
 				// existing client
@@ -203,87 +162,20 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 
 					printf("epollrdhup event from %d\n", client_fd);
 
-					close(client_fd);
+					client_close(the_client);
 					nclients--;
 
 					printf("Gone client fd=%d, most_clients=%d nclients=%d\n", client_fd, most_clients, nclients);
 
 				} else if (events[i].events & EPOLLIN) {
 					// read from client
-
 					printf("epollin event from %d\n", client_fd);
-/*
-					size_t buff_left = sizeof(the_client->in_buff) - (the_client->in_buff_term - the_client->in_buff);
-
-					// TODO - handle buffer full by sending a HTTP 413 then closing the socket
-
-					ssize_t br = read(client_fd, the_client->in_buff_term, buff_left);
-
-					if (br < 0) {
-						// TODO - handle error
-					} else {
-						the_client->in_buff_term += br;
-					}
-
-					// attempt to extract a path from what was read
-					char* pathname = extract_pathname(the_client->in_buff, the_client->in_buff_term);
-
-					if (!pathname)
-						goto next_fd;
-
-					// attempt to open the file
-					int file_fd = open(pathname, O_RDONLY);
-
-					the_client->stage = STAGE_HEADERS;
-
-					if (file_fd == -1) {
-						// 404 headers
-						memcpy(RESPONSE_HEADERS_404, the_client->out_buff, sizeof(RESPONSE_HEADERS_404));
-						the_client->out_buff_term = the_client->out_buff + sizeof(RESPONSE_HEADERS_404);
-					} else {
-						// add file_fd to the epoll instance
-						event.data.fd = file_fd;
-						event.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLET;
-						epoll_ctl(efd, EPOLL_CTL_ADD, file_fd, &event);
-
-						// 200 headers
-						memcpy(RESPONSE_HEADERS_200, the_client->out_buff, sizeof(RESPONSE_HEADERS_200));
-						the_client->out_buff_term = the_client->out_buff + sizeof(RESPONSE_HEADERS_200);
-					}
-
-					size_t bytes_to_write = the_client->out_buff_term - the_client->out_buff_cursor;
-					ssize_t bw = write(client_fd, the_client->out_buff_cursor, bytes_to_write);
-
-					if (bw < 0) {
-						// TODO - handle error
-					} else {
-						the_client->out_buff_cursor += bw;
-					}
-					
-					if (bw == bytes_to_write) {
-						// all headers written
-					}
-
-*/
-					
 				} else if (events[i].events & EPOLLOUT) {
 					// write to client
-					
 					printf("epollout event from %d\n", client_fd);
-/*
-					switch (the_client->stage) {
-						case STAGE_HEADERS:
-							ssize_t bw = write(client_fd, )
-						break;
-
-						case STAGE_CONTENT:
-						break;
-					}
-*/
 				}
 			}
 		}
-
 		printf("------------------------------------\n");
 	}
 }

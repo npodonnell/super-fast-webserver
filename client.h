@@ -3,9 +3,9 @@
 #define CLIENT_INPUT_BUFFER_SIZE 4096
 #define CLIENT_OUTPUT_BUFFER_SIZE 4096
 
-#define STAGE_READING 0 // reading request from client
-#define STAGE_HEADERS 1 // writing HTTP headers to the client
-#define STAGE_CONTENT 2 // writing content to the client
+#define CLIENT_STAGE_READING 0 // reading request from client
+#define CLIENT_STAGE_HEADERS 1 // writing HTTP headers to the client
+#define CLIENT_STAGE_CONTENT 2 // writing content to the client
 
 
 typedef struct client {
@@ -37,6 +37,7 @@ typedef struct client {
 
 } client;
 
-void RESET_CLIENT(client* client);
-
+void client_reset(client* client, const int client_fd);
+void client_event(const client* client);
+void client_close(const client* client);
 
