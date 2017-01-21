@@ -2,10 +2,15 @@
 
 // TODO - make these macros
 
-void RESET_CLIENT(client* client) {
-	client->in_buff_term = client->in_buff;
-	client->out_buff_term = client->out_buff;
+void client_reset(const client* client) {
 	client->stage = STAGE_READING;
+	client->bytes_read = 0;
 }
 
+void client_event(const client* client) {
 
+}
+
+void client_close(const client* client) {
+
+}
