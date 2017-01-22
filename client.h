@@ -3,10 +3,15 @@
 #define CLIENT_INPUT_BUFFER_SIZE 4096
 #define CLIENT_OUTPUT_BUFFER_SIZE 4096
 
-#define CLIENT_STAGE_READING 0 // reading request from client
-#define CLIENT_STAGE_HEADERS 1 // writing HTTP headers to the client
-#define CLIENT_STAGE_CONTENT 2 // writing content to the client
+#define CLIENT_STAGE_NOTHING 0 // client is gone
+#define CLIENT_STAGE_READING 1 // reading request from client
+#define CLIENT_STAGE_HEADERS 2 // writing HTTP headers to the client
+#define CLIENT_STAGE_CONTENT 3 // writing content to the client
 
+#define CLIENT_EVENT_READ_SOCKET 0
+#define CLIENT_EVENT_WRITE_SOCKET 1
+#define CLIENT_EVENT_READ_FILE 2
+#define CLIENT_EVENT_HUP 3
 
 typedef struct client {
 
@@ -15,6 +20,9 @@ typedef struct client {
 
 	// output buffer (typically used for storing HTTP headers)
 	char out_buff[CLIENT_OUTPUT_BUFFER_SIZE];
+
+	// size of the payload in the output buffer
+	int payload_size;
 
 	// which stage of the request this client is currently in (see above)
 	int stage;
@@ -26,18 +34,12 @@ typedef struct client {
 	// only has meaning when stage is STAGE_CONTENT
 	int file;
 
-	// number of bytes which have been read into the input buffer
-	int bytes_read;
-
-	// size of the payload in the output buffer
-	int out_buff_size;
-
-	// number of bytes so-far written
-	int bytes_written;
+	// number of bytes so-far written or read, depending on stage
+	int nbytes;
 
 } client;
 
-void client_reset(const int efd, const int client_fd, client* client);
+void client_init(const int efd, const int client_fd, client* client);
 void client_close(const int efd, const client* client);
-void client_event(const client* client);
+void client_event(const client* client, const int event_type);
 

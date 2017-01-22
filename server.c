@@ -6,7 +6,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-
 #include "server.h"
 #include "client.h"
 #include "ep.h"
@@ -110,14 +109,11 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
  	int most_clients = 0;
  	int nclients = 0;
 
+ 	// event loop
 	while (!shutting_down) {
-		printf("epolling...\n");
-		int n = epoll_wait(efd, events, max_epoll_events, -1);
-
-		for (int i = 0; i < n; i++) {
+		for (int i = 0; i < epoll_wait(efd, events, max_epoll_events, -1); i++) {
 
 			int fd = events[i].data.fd;
-
 			if (fd == listener) {
 				// new client
 
@@ -130,51 +126,62 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 					// enough clients already
 					// TODO - instead shut down the listener so we don't have to deal with
 					// requests we can't serve
+					printf("closed accepted connection\n");
 					close(client_fd);
 					continue;
 				}
 
 				nclients++;
-				client* the_client;
+				client* client;
 
 				if (most_clients < nclients) {
-					the_client = client_pool + most_clients;
-					fd_to_client[client_fd] = the_client;
+					// brand-new client
+					client = client_pool + most_clients;
+					fd_to_client[client_fd] = client;
 					most_clients = nclients;
 				} else {
 					// re-used client
-					the_client = fd_to_client[client_fd];
+					client = fd_to_client[client_fd];
 				}
 
-				client_reset(efd, client_fd, the_client);
-				ep_add(efd, client_fd, EP_ROLE_CLIENT);
+				// initalize client
+				client_init(efd, client_fd, client);
 
 			} else {
 				// existing client
-
 				int client_fd = fd;
-				client* the_client = fd_to_client[client_fd];
+				client* client = fd_to_client[client_fd];
 
 				if (events[i].events & EPOLLRDHUP) {
+
 					// client hung up
-					ep_remove(efd, client_fd);
-					client_close(efd, the_client);
+					client_close(efd, client);
 					nclients--;
-					printf("Gone client fd=%d, most_clients=%d nclients=%d\n", client_fd, most_clients, nclients);
 
 				} else if (events[i].events & EPOLLIN) {
+
 					// read from client
-					printf("epollin event from %d\n", client_fd);
+					client_event(client, CLIENT_EVENT_READ_SOCKET);
+
 				} else if (events[i].events & EPOLLOUT) {
+
 					// write to client
-					printf("epollout event from %d\n", client_fd);
+					client_event(client, CLIENT_EVENT_WRITE_SOCKET);
 				}
 			}
 		}
-		printf("------------------------------------\n");
+	}
+
+	// close any active clients
+	for (int i = 0; i < max_clients; i++) {
+		if (client_pool[i].stage != CLIENT_STAGE_NOTHING)
+			client_close(efd, client_pool + i);
 	}
 
 	free(events);
 	free(fd_to_client);
 	free(client_pool);
+
+	close(efd);
+	close(listener);
 }
