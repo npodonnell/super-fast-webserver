@@ -38,6 +38,11 @@ int main() {
     	return 1;
     }
 
+    if (sigaction(SIGTERM, &sa, NULL) == -1) {
+    	perror("Error: cannot handle SIGINT");
+    	return 1;
+    }
+
 	serve(LISTEN_ADDR, LISTEN_PORT, LISTEN_BACKLOG, MAX_CLIENTS, CONTENT_DIR);
 	printf("Bye\n");
 }
