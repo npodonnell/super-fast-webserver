@@ -1,5 +1,7 @@
 #pragma once
 
+extern int shutting_down;
+
 int make_listener_socket();
 int bind_and_listen(const int listener, const char* listen_addr, const int listen_port, const int listen_backlog);
 int get_listener(const char* listen_addr, const int listen_port, const int listen_backlog);

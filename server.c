@@ -1,16 +1,17 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <sys/epoll.h>
-#include <stdio.h>
+#include <unistd.h>
 #include <strings.h>
 #include <string.h>
-#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "server.h"
 #include "client.h"
 #include "ep.h"
+
+int shutting_down = 0;
 
 int make_listener_socket() {
 
@@ -109,7 +110,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
  	int most_clients = 0;
  	int nclients = 0;
 
-	while (1) {
+	while (!shutting_down) {
 		printf("epolling...\n");
 		int n = epoll_wait(efd, events, max_epoll_events, -1);
 
@@ -175,4 +176,8 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 		}
 		printf("------------------------------------\n");
 	}
+
+	free(events);
+	free(fd_to_client);
+	free(client_pool);
 }

@@ -1,8 +1,6 @@
 #include <unistd.h>
 #include "client.h"
 
-// TODO - make these macros
-
 void client_reset(const int efd, const int client_fd, client* client) {
 	// minimal reset for a client - reset other fields later
 	// when & if we get past the reading stage
