@@ -11,6 +11,7 @@ int ep_add(const int efd, const int fd, const int role) {
 
 	struct epoll_event event;
 
+	event.data.u64 = (uint64_t)0;
 	event.data.fd = fd;
 
 	switch(role) {
