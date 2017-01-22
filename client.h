@@ -41,4 +41,3 @@ void client_reset(const int efd, const int client_fd, client* client);
 void client_close(const int efd, const client* client);
 void client_event(const client* client);
 
-

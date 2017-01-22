@@ -138,7 +138,6 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 				client* the_client;
 
 				if (most_clients < nclients) {
-					// frest client
 					the_client = client_pool + most_clients;
 					fd_to_client[client_fd] = the_client;
 					most_clients = nclients;
@@ -160,14 +159,12 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 					// client hung up
 					ep_remove(efd, client_fd);
 					client_close(efd, the_client);
-
 					nclients--;
 					printf("Gone client fd=%d, most_clients=%d nclients=%d\n", client_fd, most_clients, nclients);
 
 				} else if (events[i].events & EPOLLIN) {
 					// read from client
 					printf("epollin event from %d\n", client_fd);
-
 				} else if (events[i].events & EPOLLOUT) {
 					// write to client
 					printf("epollout event from %d\n", client_fd);
