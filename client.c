@@ -14,6 +14,8 @@ void client_init(const int efd, const int client_fd, client* client) {
 
 void client_close(const int efd, client* client) {
 
+	printf("closing client %d\n", client->socket);
+
 	if (client->stage == CLIENT_STAGE_CONTENT)
 		close(client->file);
 
@@ -27,12 +29,15 @@ void client_event(const client* client, const int event_type) {
 
 	switch(event_type) {
 		case CLIENT_EVENT_READ_SOCKET:
+			printf("CLIENT_EVENT_READ_SOCKET\n");
 			break;
 
 		case CLIENT_EVENT_WRITE_SOCKET:
+			printf("CLIENT_EVENT_WRITE_SOCKET\n");
 			break;
 
 		case CLIENT_EVENT_READ_FILE:
+			printf("CLIENT_EVENT_READ_FILE\n");
 			break;
 	}
 }
