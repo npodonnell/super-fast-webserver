@@ -98,6 +98,9 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
  	// client pool
  	client* client_pool = (client*) malloc(sizeof(client) * max_clients);
 
+ 	for (int i = 0; i < max_clients; i++)
+ 		client_pool[i].stage = CLIENT_STAGE_NOTHING;
+
  	// file descriptor -> client lookup array
 	client** fd_to_client = (client**) malloc(sizeof(client*) * (efd + max_epoll_events));
 
@@ -111,8 +114,9 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 
  	// event loop
 	while (!shutting_down) {
-		for (int i = 0; i < epoll_wait(efd, events, max_epoll_events, -1); i++) {
+		int nevents = epoll_wait(efd, events, max_epoll_events, -1);
 
+		for (int i = 0; i < nevents; i++) {
 			int fd = events[i].data.fd;
 			if (fd == listener) {
 				// new client

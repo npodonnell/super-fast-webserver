@@ -12,13 +12,15 @@ void client_init(const int efd, const int client_fd, client* client) {
 	ep_add(efd, client_fd, EP_ROLE_CLIENT);
 }
 
-void client_close(const int efd, const client* client) {
+void client_close(const int efd, client* client) {
 
 	if (client->stage == CLIENT_STAGE_CONTENT)
 		close(client->file);
 
 	ep_remove(efd, client->socket);
 	close(client->socket);
+
+	client->stage = CLIENT_STAGE_NOTHING;
 }
 
 void client_event(const client* client, const int event_type) {
