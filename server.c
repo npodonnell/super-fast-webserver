@@ -16,14 +16,18 @@ int make_listener_socket() {
 
 	int listener = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, IPPROTO_TCP);
 
-	if (listener == -1)
+	if (listener == -1) {
+		perror("failed to create non-blocking listener socket\n");
 		return -1;
+	}
 
 	// set to reuse addr
 	int optval = 1;
 	
-	if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (const char*)&optval, sizeof optval) == -1)
+	if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (const char*)&optval, sizeof optval) == -1) {
+		perror("failed to set listener to SO_REUSEADDR\n");
 		return -1;
+	}
 
 	return listener;
 }
@@ -38,13 +42,13 @@ int bind_and_listen(const int listener, const char* listen_addr, const int liste
 	bzero(&local_ep.sin_zero, sizeof local_ep.sin_zero);
 
 	if (bind(listener, (struct sockaddr*) &local_ep, sizeof local_ep) != 0) {
-		fprintf(stderr, "failure to bind\n");
+		perror("listener failed to bind\n");
 		return -1;
 	}
 
 	// listen
 	if (listen(listener, listen_backlog) != 0) {
-		fprintf(stderr, "failure to listen\n");
+		perror("listener failed to listen\n");
 		return -1;
 	}
 
@@ -69,7 +73,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 
 	// change into content directory
 	if (chdir(content_dir) == -1) {
-		fprintf(stderr, "failure to change into content directory\n");
+		perror("failure to change into content directory\n");
 		return;
 	}
 
@@ -77,7 +81,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 	int listener = get_listener(listen_addr, listen_port, listen_backlog);
 
 	if (listener == -1) {
-		fprintf(stderr, "failure to make socket\n");
+		fprintf(stderr, "failure to get listener socket\n");
 		return;
 	}
 
@@ -88,7 +92,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 	int efd = ep_init(max_epoll_events);
 
 	if (efd == -1) {
-		fprintf(stderr, "failure to create epoll instance\n");
+		perror("failure to create epoll instance\n");
 		return;
 	}
 
@@ -153,8 +157,9 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 
 			} else {
 				// existing client
-				int client_fd = fd;
-				client* client = fd_to_client[client_fd];
+				client* client = fd_to_client[fd];
+
+				printf("existing client: %d\n", client->socket);
 
 				if (events[i].events & EPOLLRDHUP) {
 
@@ -177,7 +182,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 	}
 
 	// close any active clients
-	for (int i = 0; i < max_clients; i++) {
+	for (int i = max_clients - 1; -1 < i; i--) {
 		if (client_pool[i].stage != CLIENT_STAGE_NOTHING)
 			client_close(efd, client_pool + i);
 	}

@@ -29,7 +29,7 @@ int ep_add(const int efd, const int fd, const int role) {
 	}
 
  	if (epoll_ctl(efd, EPOLL_CTL_ADD, fd, &event) == -1) {
- 		fprintf(stderr, "epoll_ctl failure when adding\n");
+ 		perror("epoll_ctl failure when adding\n");
  		return -1;
  	}
 
@@ -41,7 +41,7 @@ int ep_remove(const int efd, const int fd) {
 	struct epoll_event dummy;
 
 	if (epoll_ctl(efd, EPOLL_CTL_DEL, fd, &dummy) == -1) {
-		fprintf(stderr, "epoll_ctl failure when removing\n");
+		perror("epoll_ctl failure when removing\n");
 		return -1;
 	}
 

@@ -7,11 +7,11 @@
 #define LISTEN_ADDR "0.0.0.0"
 #define LISTEN_PORT 8080
 #define LISTEN_BACKLOG 50
-#define MAX_CLIENTS 5
+#define MAX_CLIENTS 3
 #define CONTENT_DIR "./content"
 
 void handle_signal(const int signal) {
-	fprintf(stderr, "caught signal %d\n", signal);
+	printf("caught signal %d\n", signal);
 	shutting_down = 1;
 }
 
@@ -30,17 +30,17 @@ int main() {
 
     if (sigaction(SIGINT, &sa, NULL) == -1) {
     	perror("Error: cannot handle SIGINT");
-    	return 1;
+    	return -1;
     }
 
     if (sigaction(SIGHUP, &sa, NULL) == -1) {
-    	perror("Error: cannot handle SIGINT");
-    	return 1;
+    	perror("Error: cannot handle SIGHUP");
+    	return -1;
     }
 
     if (sigaction(SIGTERM, &sa, NULL) == -1) {
-    	perror("Error: cannot handle SIGINT");
-    	return 1;
+    	perror("Error: cannot handle SIGTERM");
+    	return -1;
     }
 
 	serve(LISTEN_ADDR, LISTEN_PORT, LISTEN_BACKLOG, MAX_CLIENTS, CONTENT_DIR);
