@@ -37,43 +37,52 @@ void client_event(client* client, const int event_type) {
 		case CLIENT_EVENT_READ_SOCKET:
 			printf("CLIENT_EVENT_READ_SOCKET\n");
 
-			// TODO - check client stage and check in_buff is not full
+			switch(client->stage) {
 
-			int br = read(client->socket, 
-				(void*) client->in_buff + client->nbytes,
-				 sizeof(client->in_buff) - client->nbytes);
+				int br; // bytes read
 
-			// TODO - handle error (0 or -1)
+				case CLIENT_STAGE_READING_HEADERS:
 
-			client->nbytes += br;
-			printf("read %d bytes, nbytes=%d\n", br, client->nbytes);
+					br = read(client->socket, 
+						(void*) client->in_buff + client->nbytes,
+						 sizeof(client->in_buff) - client->nbytes);
 
-			// check for two consecutive \n's (means headers were read)
-			// TODO - handle CRLFs too
-			char* scanner = client->in_buff + client->nbytes - 1;
+					// TODO - handle error (0 or -1)
 
-			while (*scanner != '\n' && client->in_buff < scanner)
-				scanner--;
+					client->nbytes += br;
+					printf("read %d bytes, nbytes=%d/%d\n", br, client->nbytes, CLIENT_INPUT_BUFFER_SIZE);
 
-			if (client->in_buff < scanner) {
-				scanner--;
+					if (client->nbytes == CLIENT_INPUT_BUFFER_SIZE) {
+						fprintf(stderr, "client's input buffer is full");
+						break;
+					}
 
-				if (*scanner != '\n')
+					// check for two consecutive \n's (means headers were read)
+					// TODO - handle CRLFs too
+					char* scanner = client->in_buff + client->nbytes - 1;
+
+					while (*scanner != '\n' && client->in_buff < scanner)
+						scanner--;
+
+					if (client->in_buff < scanner) {
+						scanner--;
+
+						if (*scanner != '\n')
+							break;
+					} else
+						break;
+					
+					printf("headers read (%d bytes)\n", (int) (scanner - client->in_buff));
 					break;
-			} else {
-				break;
+
+				case CLIENT_STAGE_READING_CONTENT:
+					break;
 			}
-			
-			printf("headers read (%d bytes)\n", (int) (scanner - client->in_buff));
 
 			break;
 
 		case CLIENT_EVENT_WRITE_SOCKET:
 			printf("CLIENT_EVENT_WRITE_SOCKET\n");
-			break;
-
-		case CLIENT_EVENT_READ_FILE:
-			printf("CLIENT_EVENT_READ_FILE\n");
 			break;
 	}
 }
