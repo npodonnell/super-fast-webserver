@@ -39,7 +39,8 @@ void client_event(client* client, const int event_type) {
 
 			switch(client->stage) {
 
-				int br; // bytes read
+				// bytes read
+				int br;
 
 				case CLIENT_STAGE_READING_HEADERS:
 
@@ -53,26 +54,10 @@ void client_event(client* client, const int event_type) {
 					printf("read %d bytes, nbytes=%d/%d\n", br, client->nbytes, CLIENT_INPUT_BUFFER_SIZE);
 
 					if (client->nbytes == CLIENT_INPUT_BUFFER_SIZE) {
-						fprintf(stderr, "client's input buffer is full");
+						fprintf(stderr, "client's input buffer is full\n");
 						break;
 					}
 
-					// check for two consecutive \n's (means headers were read)
-					// TODO - handle CRLFs too
-					char* scanner = client->in_buff + client->nbytes - 1;
-
-					while (*scanner != '\n' && client->in_buff < scanner)
-						scanner--;
-
-					if (client->in_buff < scanner) {
-						scanner--;
-
-						if (*scanner != '\n')
-							break;
-					} else
-						break;
-					
-					printf("headers read (%d bytes)\n", (int) (scanner - client->in_buff));
 					break;
 
 				case CLIENT_STAGE_READING_CONTENT:
