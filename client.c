@@ -3,13 +3,19 @@
 #include "client.h"
 #include "ep.h"
 
-void client_init(const int efd, const int client_fd, client* client) {
+int client_init(const int efd, const int client_fd, client* client) {
 	// minimal reset for a client - reset other fields later
 	// when & if we get past the reading stage
 	client->socket = client_fd;
 	client->stage = CLIENT_STAGE_READING;
 	client->nbytes = 0;
-	ep_add(efd, client_fd, EP_ROLE_CLIENT);
+
+	if (ep_add(efd, client_fd, EP_ROLE_CLIENT) == -1) {
+		perror("ep_add failed\n");
+		return -1;
+	}
+
+	return 0;
 }
 
 void client_close(const int efd, client* client) {

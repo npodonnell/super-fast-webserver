@@ -39,7 +39,7 @@ typedef struct client {
 
 } client;
 
-void client_init(const int efd, const int client_fd, client* client);
+int client_init(const int efd, const int client_fd, client* client);
 void client_close(const int efd, client* client);
 void client_event(const client* client, const int event_type);
 
