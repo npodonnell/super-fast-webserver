@@ -1,3 +1,5 @@
+all: release
+
 
 test: release
 	valgrind --tool=memcheck --leak-check=yes ./event-server.exe
