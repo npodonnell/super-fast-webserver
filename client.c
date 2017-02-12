@@ -70,15 +70,15 @@ void client_event(client* client, const int event_type) {
 							scanner++;
 
 						if (scanner == last_char)
-							goto noheaders;
+							goto have_req;
 
 						if (*(scanner + 1) == '\n')
-							goto headers;
+							goto have_no_req;
 
 						scanner++;
 					}
 
-					headers:
+					have_req:
 
 					//client->stage = CLIENT_STAGE_READING_CONTENT;
 					client->content_start = scanner + 2;
@@ -91,7 +91,7 @@ void client_event(client* client, const int event_type) {
 
 
 
-					noheaders:
+					have_no_req:
 					break;
 
 				case CLIENT_STAGE_READING_CONTENT:
