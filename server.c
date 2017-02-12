@@ -103,7 +103,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
  	client* client_pool = (client*) malloc(sizeof(client) * max_clients);
 
  	for (int i = 0; i < max_clients; i++)
- 		client_pool[i].stage = CLIENT_STAGE_NOTHING;
+ 		client_pool[i].stage = CLIENT_STAGE_EMPTY;
 
  	// file descriptor -> client lookup array
 	client** fd_to_client = (client**) malloc(sizeof(client*) * (efd + max_epoll_events));
@@ -183,7 +183,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 
 	// close any active clients
 	for (int i = max_clients - 1; -1 < i; i--) {
-		if (client_pool[i].stage != CLIENT_STAGE_NOTHING)
+		if (client_pool[i].stage != CLIENT_STAGE_EMPTY)
 			client_close(efd, client_pool + i);
 	}
 
