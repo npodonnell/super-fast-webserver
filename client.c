@@ -31,11 +31,41 @@ void client_close(const int efd, client* client) {
 	client->stage = CLIENT_STAGE_EMPTY;
 }
 
-void client_event(const client* client, const int event_type) {
+void client_event(client* client, const int event_type) {
 
 	switch(event_type) {
 		case CLIENT_EVENT_READ_SOCKET:
 			printf("CLIENT_EVENT_READ_SOCKET\n");
+
+			// TODO - check client stage and check in_buff is not full
+
+			int br = read(client->socket, 
+				(void*) client->in_buff + client->nbytes,
+				 sizeof(client->in_buff) - client->nbytes);
+
+			// TODO - handle error (0 or -1)
+
+			client->nbytes += br;
+			printf("read %d bytes, nbytes=%d\n", br, client->nbytes);
+
+			// check for two consecutive \n's (means headers were read)
+			// TODO - handle CRLFs too
+			char* scanner = client->in_buff + client->nbytes - 1;
+
+			while (*scanner != '\n' && client->in_buff < scanner)
+				scanner--;
+
+			if (client->in_buff < scanner) {
+				scanner--;
+
+				if (*scanner != '\n')
+					break;
+			} else {
+				break;
+			}
+			
+			printf("headers read (%d bytes)\n", (int) (scanner - client->in_buff));
+
 			break;
 
 		case CLIENT_EVENT_WRITE_SOCKET:
