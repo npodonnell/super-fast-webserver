@@ -7,7 +7,7 @@ int client_init(const int efd, const int client_fd, client* client) {
 	// minimal reset for a client - reset other fields later
 	// when & if we get past the reading stage
 	client->socket = client_fd;
-	client->stage = CLIENT_STAGE_READING_HEADERS;
+	client->stage = CLIENT_STAGE_READING_REQUEST;
 	client->nbytes = 0;
 
 	if (ep_add(efd, client_fd, EP_ROLE_CLIENT) == -1) {
@@ -42,7 +42,8 @@ void client_event(client* client, const int event_type) {
 				// bytes read
 				int br;
 
-				case CLIENT_STAGE_READING_HEADERS:
+				case CLIENT_STAGE_READING_REQUEST:
+					printf(" CLIENT_STAGE_READING_REQUEST\n");
 
 					br = read(client->socket, 
 						(void*) client->in_buff + client->nbytes,
@@ -55,12 +56,46 @@ void client_event(client* client, const int event_type) {
 
 					if (client->nbytes == CLIENT_INPUT_BUFFER_SIZE) {
 						fprintf(stderr, "client's input buffer is full\n");
+
+						// TODO - close client
 						break;
 					}
 
+					// scan for a \n\n
+					char* scanner = client->in_buff;
+					char* last_char = client->in_buff + client->nbytes - 1;
+
+					while(1) {
+						while (scanner < last_char && *scanner != '\n')
+							scanner++;
+
+						if (scanner == last_char)
+							goto noheaders;
+
+						if (*(scanner + 1) == '\n')
+							goto headers;
+
+						scanner++;
+					}
+
+					headers:
+
+					//client->stage = CLIENT_STAGE_READING_CONTENT;
+					client->content_start = scanner + 2;
+
+					printf("read request---\n");
+					write(1, client->in_buff, client->content_start - client->in_buff);
+					printf("---------------\n");
+
+					// TODO - parse the request
+
+
+
+					noheaders:
 					break;
 
 				case CLIENT_STAGE_READING_CONTENT:
+					printf(" CLIENT_STAGE_READING_CONTENT\n");
 					break;
 			}
 
