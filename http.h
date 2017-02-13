@@ -21,3 +21,5 @@ typedef struct http_response {
 	int status_code;
 	int content_length;
 } http_response;
+
+void http_parse_request(const char* buf, http_request* request);

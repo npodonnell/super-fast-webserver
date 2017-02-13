@@ -98,8 +98,8 @@ void client_event(client* client, const int event_type) {
 					write(1, client->in_buff, client->content_start - client->in_buff);
 					printf("---------------\n");
 
-					// TODO - parse the request
-
+					// parse the request
+					http_parse_request(client->in_buff, &client->request);
 
 
 					have_no_req:
