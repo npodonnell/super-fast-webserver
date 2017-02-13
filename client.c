@@ -70,10 +70,10 @@ void client_event(client* client, const int event_type) {
 							scanner++;
 
 						if (scanner == last_char)
-							goto have_req;
+							goto have_no_req;
 
 						if (*(scanner + 1) == '\n')
-							goto have_no_req;
+							goto have_req;
 
 						scanner++;
 					}
