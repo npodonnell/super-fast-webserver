@@ -11,7 +11,7 @@ int client_init(const int efd, const int client_fd, client* client) {
 	client->nbytes = 0;
 
 	if (ep_add(efd, client_fd, EP_ROLE_CLIENT) == -1) {
-		perror("ep_add failed\n");
+		fprintf(stderr, "ep_add failed\n");
 		return -1;
 	}
 

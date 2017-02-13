@@ -17,7 +17,7 @@ int make_listener_socket() {
 	int listener = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, IPPROTO_TCP);
 
 	if (listener == -1) {
-		perror("failed to create non-blocking listener socket\n");
+		perror("failed to create non-blocking listener socket");
 		return -1;
 	}
 
@@ -25,7 +25,7 @@ int make_listener_socket() {
 	int optval = 1;
 	
 	if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (const char*)&optval, sizeof optval) == -1) {
-		perror("failed to set listener to SO_REUSEADDR\n");
+		perror("failed to set listener to SO_REUSEADDR");
 		return -1;
 	}
 
@@ -42,13 +42,13 @@ int bind_and_listen(const int listener, const char* listen_addr, const int liste
 	bzero(&local_ep.sin_zero, sizeof local_ep.sin_zero);
 
 	if (bind(listener, (struct sockaddr*) &local_ep, sizeof local_ep) != 0) {
-		perror("listener failed to bind\n");
+		perror("listener failed to bind");
 		return -1;
 	}
 
 	// listen
 	if (listen(listener, listen_backlog) != 0) {
-		perror("listener failed to listen\n");
+		perror("listener failed to listen");
 		return -1;
 	}
 
@@ -60,7 +60,7 @@ int get_listener(const char* listen_addr, const int listen_port, const int liste
 	int listener = make_listener_socket();
 
 	if (bind_and_listen(listener, listen_addr, listen_port, listen_backlog) == -1) {
-		perror("bind_and_listen failed\n");
+		perror("bind_and_listen failed");
 		return -1;
 	}
 
@@ -73,7 +73,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 
 	// change into content directory
 	if (chdir(content_dir) == -1) {
-		perror("failure to change into content directory\n");
+		perror("failure to change into content directory");
 		return;
 	}
 
@@ -81,7 +81,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 	int listener = get_listener(listen_addr, listen_port, listen_backlog);
 
 	if (listener == -1) {
-		perror("failure to get listener socket\n");
+		perror("failure to get listener socket");
 		return;
 	}
 
@@ -92,7 +92,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 	int efd = ep_init(max_epoll_events);
 
 	if (efd == -1) {
-		perror("failure to create epoll instance\n");
+		perror("failure to create epoll instance");
 		return;
 	}
 
