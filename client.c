@@ -61,7 +61,7 @@ void client_event(client* client, const int event_type) {
 						break;
 					}
 
-					// scan for a \n\n
+					// scan for a \n\n or \r\n\r\n
 					char* scanner = client->in_buff;
 					char* last_char = client->in_buff + client->nbytes - 1;
 
@@ -72,8 +72,19 @@ void client_event(client* client, const int event_type) {
 						if (scanner == last_char)
 							goto have_no_req;
 
-						if (*(scanner + 1) == '\n')
+						if (client->in_buff < scanner && 
+							scanner + 2 <= last_char &&
+							*(scanner - 1) == '\r' && 
+							*(scanner + 1) == '\r' &&
+							*(scanner + 2) == '\n') {
+							client->content_start = scanner + 3;
 							goto have_req;
+						}
+
+						if (*(scanner + 1) == '\n') {
+							client->content_start = scanner + 2;
+							goto have_req;
+						}
 
 						scanner++;
 					}
@@ -81,7 +92,7 @@ void client_event(client* client, const int event_type) {
 					have_req:
 
 					//client->stage = CLIENT_STAGE_READING_CONTENT;
-					client->content_start = scanner + 2;
+					
 
 					printf("read request---\n");
 					write(1, client->in_buff, client->content_start - client->in_buff);
