@@ -45,6 +45,13 @@ void client_event(client* client, const int event_type) {
 				case CLIENT_STAGE_READING_REQUEST:
 					printf(" CLIENT_STAGE_READING_REQUEST\n");
 
+					if (client->nbytes == CLIENT_INPUT_BUFFER_SIZE) {
+						fprintf(stderr, "client's input buffer is full\n");
+
+						// TODO - close client
+						break;
+					}
+
 					br = read(client->socket, 
 						(void*) client->in_buff + client->nbytes,
 						 sizeof(client->in_buff) - client->nbytes);
@@ -53,13 +60,6 @@ void client_event(client* client, const int event_type) {
 
 					client->nbytes += br;
 					printf("read %d bytes, nbytes=%d/%d\n", br, client->nbytes, CLIENT_INPUT_BUFFER_SIZE);
-
-					if (client->nbytes == CLIENT_INPUT_BUFFER_SIZE) {
-						fprintf(stderr, "client's input buffer is full\n");
-
-						// TODO - close client
-						break;
-					}
 
 					// scan for a \n\n or \r\n\r\n
 					char* scanner = client->in_buff;
