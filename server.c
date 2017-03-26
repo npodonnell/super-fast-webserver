@@ -178,16 +178,16 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 
 					// read from client
 					switch(client_read(client)) {
-						case CLIENT_RETVAL_SHOULD_CLOSE:
-							goto close_client;
+					case CLIENT_RETVAL_SHOULD_CLOSE:
+						goto close_client;
 					}
 
 				} else if (events[i].events & EPOLLOUT) {
 
 					// write to client
 					switch(client_write(client)) {
-						case CLIENT_RETVAL_SHOULD_CLOSE:
-							goto close_client;
+					case CLIENT_RETVAL_SHOULD_CLOSE:
+						goto close_client;
 					}
 				}
 

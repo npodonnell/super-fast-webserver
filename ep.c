@@ -15,17 +15,17 @@ int ep_add(const int efd, const int fd, const int role) {
 	event.data.fd = fd;
 
 	switch(role) {
-		case EP_ROLE_LISTENER:
-			event.events = EPOLLET | EPOLLIN;
-			break;
+	case EP_ROLE_LISTENER:
+		event.events = EPOLLET | EPOLLIN;
+		break;
 
-		case EP_ROLE_CLIENT:
-			event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP;
-			break;
+	case EP_ROLE_CLIENT:
+		event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP;
+		break;
 
-		case EP_ROLE_FILE:
-			event.events = EPOLLET | EPOLLIN;
-			break;
+	case EP_ROLE_FILE:
+		event.events = EPOLLET | EPOLLIN;
+		break;
 	}
 
  	if (epoll_ctl(efd, EPOLL_CTL_ADD, fd, &event) == -1) {
