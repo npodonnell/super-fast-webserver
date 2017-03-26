@@ -128,8 +128,6 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 				// TODO - get client's address
 				int client_fd = accept(listener, 0, 0);
 
-				printf("new client: %d\n", client_fd);
-
 				if (nclients == max_clients) {
 					// enough clients already
 					// TODO - instead shut down the listener so we don't have to deal with
@@ -153,39 +151,69 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 				}
 
 				// initalize client
-				client_init(efd, client_fd, client);
+				if (client_init(client, client_fd) != CLIENT_RETVAL_OK) {
+					client_close(client);
+					nclients--;
+					continue;
+				}
+
+				// add to epoll
+				if (ep_add(efd, client_fd, EP_ROLE_CLIENT) == -1) {
+					client_close(client);
+					nclients--;
+					continue;
+				}
 
 			} else {
 				// existing client
 				client* client = fd_to_client[fd];
 
-				printf("existing client: %d\n", client->socket);
-
 				if (events[i].events & EPOLLRDHUP) {
 
 					// client hung up
-					client_close(efd, client);
-					nclients--;
+					goto close_client;
 
 				} else if (events[i].events & EPOLLIN) {
 
 					// read from client
-					client_read(client);
+					switch(client_read(client)) {
+						case CLIENT_RETVAL_SHOULD_CLOSE:
+							goto close_client;
+					}
 
 				} else if (events[i].events & EPOLLOUT) {
 
 					// write to client
-					client_write(client);
+					switch(client_read(client)) {
+						case CLIENT_RETVAL_SHOULD_CLOSE:
+							goto close_client;
+					}
 				}
+
+				continue;
+
+				close_client:
+				printf("Closing client %d\n", client->socket);
+				ep_remove(efd, client->socket);
+				client_close(client);
+				nclients--;
 			}
 		}
+
+		printf("nclients=%d\n", nclients);
 	}
 
 	// close any active clients
 	for (int i = max_clients - 1; -1 < i; i--) {
-		if (client_pool[i].stage != CLIENT_STAGE_EMPTY)
-			client_close(efd, client_pool + i);
+		if (client_pool[i].stage != CLIENT_STAGE_EMPTY) {
+			client* client = client_pool + i;
+			ep_remove(efd, client->socket);
+			client_close(client);
+			nclients--;
+		}
 	}
+
+	printf("on closing nclients=%d\n", nclients);
 
 	free(events);
 	free(fd_to_client);

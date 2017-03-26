@@ -1,49 +1,40 @@
 #include <unistd.h>
 #include <stdio.h>
 #include "client.h"
-#include "ep.h"
 
-int client_init(const int efd, const int client_fd, client* client) {
+client_retval client_init(client* client, const int client_fd) {
+
 	// minimal reset for a client - reset other fields later
 	// when & if we get past the reading stage
 	client->socket = client_fd;
 	client->stage = CLIENT_STAGE_READING_REQUEST;
 	client->nbytes = 0;
 
-	if (ep_add(efd, client_fd, EP_ROLE_CLIENT) == -1) {
-		fprintf(stderr, "ep_add failed\n");
-		return -1;
-	}
-
-	return 0;
+	return CLIENT_RETVAL_OK;
 }
 
-void client_close(const int efd, client* client) {
-
-	printf("closing client %d\n", client->socket);
+client_retval client_close(client* client) {
 
 	if (client->stage == CLIENT_STAGE_WRITING_CONTENT)
 		close(client->file);
 
-	ep_remove(efd, client->socket);
 	close(client->socket);
-
 	client->stage = CLIENT_STAGE_EMPTY;
+
+	return CLIENT_RETVAL_OK;
 }
 
-void client_read(client* client) {
+client_retval client_read(client* client) {
+	// bytes read
+	int br;
+
 	switch(client->stage) {
-
-		// bytes read
-		int br;
-
 		case CLIENT_STAGE_READING_REQUEST:
 			printf(" CLIENT_STAGE_READING_REQUEST\n");
 
 			if (client->nbytes == CLIENT_INPUT_BUFFER_SIZE) {
 				fprintf(stderr, "client's input buffer is full\n");
-
-				// TODO - close client
+				return CLIENT_RETVAL_SHOULD_CLOSE;
 				break;
 			}
 
@@ -86,9 +77,6 @@ void client_read(client* client) {
 
 			have_req:
 
-			//client->stage = CLIENT_STAGE_READING_CONTENT;
-			
-
 			printf("read request---\n");
 			write(1, client->in_buff, client->content_start - client->in_buff);
 			printf("---------------\n");
@@ -112,8 +100,10 @@ void client_read(client* client) {
 			printf(" CLIENT_STAGE_READING_CONTENT\n");
 			break;
 	}
+
+	return CLIENT_RETVAL_OK;
 }
 
-void client_write(client* client) {
-
+client_retval client_write(client* client) {
+	return CLIENT_RETVAL_OK;
 }
