@@ -69,12 +69,16 @@ int get_listener(const char* listen_addr, const int listen_port, const int liste
 
 void serve(const char* listen_addr, const int listen_port, const int listen_backlog, const int max_clients, const char* content_dir) {
 
-	// TODO - chroot into content dir
-
-	// change into content directory
-	if (chdir(content_dir) == -1) {
-		perror("failure to change into content directory");
+	// chroot into content directory
+	if (chroot(content_dir) != 0) {
+		perror("failure to chroot into content directory");
 		return;
+	}
+
+	// change into /
+	if (chdir("/") != 0) {
+		perror("failure to chdir into chrooted / directory");
+		return;		
 	}
 
 	// create a non-blocking listener socket
