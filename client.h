@@ -2,7 +2,7 @@
 
 #include "http.h"
 
-#define CLIENT_INPUT_BUFFER_SIZE             4
+#define CLIENT_INPUT_BUFFER_SIZE             4096
 #define CLIENT_OUTPUT_BUFFER_SIZE            4096
 
 #define CLIENT_STAGE_EMPTY                   0       // client object is free
