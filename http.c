@@ -7,3 +7,4 @@ void http_parse_request(const char* buf, http_request* request) {
 	request->path[0] = '/';
 	request->path[1] = '\0';
 }
+

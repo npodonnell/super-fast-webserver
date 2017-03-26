@@ -170,12 +170,12 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 				} else if (events[i].events & EPOLLIN) {
 
 					// read from client
-					client_event(client, CLIENT_EVENT_READ_SOCKET);
+					client_read(client);
 
 				} else if (events[i].events & EPOLLOUT) {
 
 					// write to client
-					client_event(client, CLIENT_EVENT_WRITE_SOCKET);
+					client_write(client);
 				}
 			}
 		}

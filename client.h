@@ -11,10 +11,6 @@
 #define CLIENT_STAGE_WRITING_RESPONSE        3       // writing HTTP headers to the client
 #define CLIENT_STAGE_WRITING_CONTENT         4       // writing content to the client
 
-#define CLIENT_EVENT_READ_SOCKET             0       // data is ready to be read from the socket
-#define CLIENT_EVENT_WRITE_SOCKET            1       // socket is ready to write to
-#define CLIENT_EVENT_HUP                     2       // client has disconnected
-
 typedef struct client {
 
 	// input buffer
@@ -50,5 +46,5 @@ typedef struct client {
 
 int client_init(const int efd, const int client_fd, client* client);
 void client_close(const int efd, client* client);
-void client_event(client* client, const int event_type);
-
+void client_read(client* client);
+void client_write(client* client);
