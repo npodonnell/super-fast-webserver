@@ -3,9 +3,9 @@
 #define HTTP_VERB_GET         0
 #define HTTP_VERB_POST        1
 
-#define HTTP_VERSION_1        0
-#define HTTP_VERSION_11       1
-#define HTTP_VERSION_2        2
+#define HTTP_VERSION_10       10
+#define HTTP_VERSION_11       11
+#define HTTP_VERSION_20       20
 
 #define PATH_BUFFER_SIZE      1024
 
@@ -18,9 +18,10 @@ typedef struct http_request {
 
 
 typedef struct http_response {
+	int version;
 	int status_code;
 	int content_length;
 } http_response;
 
-void http_parse_request(const char* buf, http_request* request);
-void http_format_response(const http_response* response, char* buf);
+int http_parse_request(const char* buf, http_request* request);
+int http_format_response(const http_response* response, char* buf);

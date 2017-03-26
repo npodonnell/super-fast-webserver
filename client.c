@@ -29,8 +29,12 @@ client_retval client_close(client* client) {
 }
 
 client_retval client_read(client* client) {
-	// bytes read
-	int br;
+
+	// bytes read, bytes written
+	ssize_t br, bw;
+
+	int fd;
+	struct stat st;
 
 	switch(client->stage) {
 	case CLIENT_STAGE_READING_REQUEST:
@@ -87,32 +91,34 @@ client_retval client_read(client* client) {
 		write(1, client->in_buff, client->content_start - client->in_buff);
 		printf("---------------\n");
 
+		if (http_parse_request(client->in_buff, &client->request) != 0) {
+			// client sent an unparsable request- don't send a response
+			// just close instead.
+			return CLIENT_RETVAL_SHOULD_CLOSE;
+		}
+
 		http_request* request = &client->request;
 		http_response* response = &client->response;
 
-		// parse the request
-		http_parse_request(client->in_buff, request);
+		response->version = request->version;
 
 		switch(request->verb) {
 		case HTTP_VERB_GET:
 
-			client->stage = CLIENT_STAGE_WRITING_RESPONSE;
+			//client->stage = CLIENT_STAGE_WRITING_RESPONSE;
 
-			int fd = open(request->path, O_RDONLY);
+			fd = open(request->path, O_RDONLY);
 
 			if (fd == -1) {
-				printf("404\n");
 				// cannot open - user will see a 404 no matter what
+				perror("failed to open file");
 				response->status_code = 404;
 				response->content_length = 0;
 				break;
 			}
 
-			struct stat st;
-
 			if (fstat(fd, &st) != 0) {
 				// shouldn't get here. TODO: investigate if we can remove this check
-
 				perror("fstat failed");
 				close(fd);
 				response->status_code = 404;
@@ -120,16 +126,28 @@ client_retval client_read(client* client) {
 				break;
 			}
 
-			
+			// TODO - put another check here to make sure file really is a file
+			// and can be read
 
 			printf("size of %s is %d\n",request->path, (int)st.st_size);
 
 			response->status_code = 200;
 			response->content_length = st.st_size;
 
+			client->payload_size = http_format_response(response, client->out_buff);
+
+			printf("------\n");
+			printf("%s", client->out_buff);
+			printf("------\n");
+/*
 			client->file = fd;
 			client->nbytes = 0;
-			
+*/			
+			bw = write(client->socket, client->out_buff, client->payload_size);
+
+			// TODO - check bw
+
+			bw = sendfile(client->socket, fd, 0, response->content_length);
 
 			break;
 
@@ -150,8 +168,9 @@ client_retval client_read(client* client) {
 }
 
 client_retval client_write(client* client) {
-	// bytes written
-	int bw;
+
+	// bytes read, bytes written
+	ssize_t br, bw;
 
 	switch(client->stage) {
 	case CLIENT_STAGE_WRITING_RESPONSE:
