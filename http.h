@@ -23,3 +23,4 @@ typedef struct http_response {
 } http_response;
 
 void http_parse_request(const char* buf, http_request* request);
+void http_format_response(const http_response* response, char* buf);
