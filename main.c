@@ -7,7 +7,7 @@
 #define LISTEN_ADDR "0.0.0.0"
 #define LISTEN_PORT 8080
 #define LISTEN_BACKLOG 50
-#define MAX_CLIENTS 3
+#define MAX_CLIENTS 4
 #define CONTENT_DIR "./content"
 
 void handle_signal(const int signal) {

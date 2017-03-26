@@ -124,6 +124,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 			int fd = events[i].data.fd;
 			if (fd == listener) {
 				// new client
+				printf("new client!\n");
 
 				// TODO - get client's address
 				int client_fd = accept(listener, 0, 0);
@@ -184,7 +185,7 @@ void serve(const char* listen_addr, const int listen_port, const int listen_back
 				} else if (events[i].events & EPOLLOUT) {
 
 					// write to client
-					switch(client_read(client)) {
+					switch(client_write(client)) {
 						case CLIENT_RETVAL_SHOULD_CLOSE:
 							goto close_client;
 					}

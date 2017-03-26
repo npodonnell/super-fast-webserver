@@ -35,14 +35,16 @@ client_retval client_read(client* client) {
 			if (client->nbytes == CLIENT_INPUT_BUFFER_SIZE) {
 				fprintf(stderr, "client's input buffer is full\n");
 				return CLIENT_RETVAL_SHOULD_CLOSE;
-				break;
 			}
 
 			br = read(client->socket, 
 				(void*) client->in_buff + client->nbytes,
 				 sizeof(client->in_buff) - client->nbytes);
 
-			// TODO - handle error (0 or -1)
+			if (br < 1) {
+				fprintf(stderr, "read returned %d\n", br);
+				return CLIENT_RETVAL_SHOULD_CLOSE;
+			}
 
 			client->nbytes += br;
 			printf("read %d bytes, nbytes=%d/%d\n", br, client->nbytes, CLIENT_INPUT_BUFFER_SIZE);
