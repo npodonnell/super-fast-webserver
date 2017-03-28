@@ -108,9 +108,9 @@ client_retval client_handle_reading_request(client* client) {
 
 		client->payload_size = http_format_response(response, client->out_buff);
 
-		printf("------\n");
-		printf("%s", client->out_buff);
-		printf("------\n");
+		printf("writing response---\n");
+		write(1, client->out_buff, client->payload_size);
+		printf("-------------------\n");
 
 		client->file = fd;
 		client->nbytes = 0;
@@ -118,26 +118,18 @@ client_retval client_handle_reading_request(client* client) {
 		bw = write(client->socket, client->out_buff, client->payload_size);
 
 		if (bw == client->payload_size) {
-			
-			// entirity of response headers written out, we skip the writing response
+			// likely: entirity of response headers written out, we skip the writing response
 			// stage and go directly to writing content stage
 			client->stage = CLIENT_STAGE_WRITING_CONTENT;
 			return client_handle_writing_content(client);
-
 		} else if (bw < 0) {
 			perror("write failed");
 			return CLIENT_RETVAL_SHOULD_CLOSE;
 		} else {
-			client->nbytes = bw;
+			client->nbytes += bw;
 			client->stage = CLIENT_STAGE_WRITING_RESPONSE;
 		}
-
-		break;
-
-	case HTTP_VERB_POST:
-		break;
 	}
-
 
 	have_no_req:
 	return CLIENT_RETVAL_OK;
@@ -148,19 +140,45 @@ client_retval client_handle_reading_content(client* client) {
 }
 
 client_retval client_handle_writing_response(client* client) {
-	ssize_t br, bw;
+	ssize_t bw;
 
-	bw = write(client->socket,
-	 client->out_buff + client->nbytes, 
-	 client->payload_size - client->nbytes);
+	bw = write(client->socket, client->out_buff + client->nbytes, client->payload_size - client->nbytes);
+
+	if (bw < 0) {
+		perror("write failed");
+		return CLIENT_RETVAL_SHOULD_CLOSE;
+	}
+	
+	client->nbytes += bw;
+	
+	if (client->nbytes == client->payload_size) {
+		client->stage = CLIENT_STAGE_WRITING_CONTENT;
+		client->nbytes = 0;
+		return client_handle_writing_content(client);
+	}
 
 	return CLIENT_RETVAL_OK;
 }
 
 client_retval client_handle_writing_content(client* client) {
-	// TODO - complete
+	ssize_t bw;
+
 	http_response* response = &client->response;
-	sendfile(client->socket, client->file, 0, response->content_length);
+	bw = sendfile(client->socket, client->file, 0, response->content_length);
+
+	if (bw < 0) {
+		perror("write failed");
+		return CLIENT_RETVAL_SHOULD_CLOSE;
+	}
+
+	client->nbytes += bw;
+	
+	if (client->nbytes == response->content_length) {
+		// successfully completed request
+		printf("successfully completed request\n");
+		return CLIENT_RETVAL_SHOULD_CLOSE;
+	}	
+
 	return CLIENT_RETVAL_OK;
 }
 

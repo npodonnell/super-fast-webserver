@@ -23,6 +23,8 @@ client_retval client_close(client* client) {
 	close(client->socket);
 	client->stage = CLIENT_STAGE_EMPTY;
 
+	printf("closed client %d\n", client->socket);
+
 	return CLIENT_RETVAL_OK;
 }
 
@@ -36,6 +38,8 @@ client_retval client_read(client* client) {
 		printf("CLIENT_STAGE_READING_CONTENT handler for %d\n", client->socket);
 		return client_handle_reading_content(client);
 	}
+
+	return CLIENT_RETVAL_FAILURE;
 }
 
 client_retval client_write(client* client) {
@@ -48,4 +52,6 @@ client_retval client_write(client* client) {
 		printf("CLIENT_STAGE_WRITING_CONTENT handler for %d\n", client->socket);
 		return client_handle_writing_content(client);
 	}
+
+	return CLIENT_RETVAL_FAILURE;
 }
