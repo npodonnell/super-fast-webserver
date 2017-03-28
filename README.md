@@ -30,4 +30,5 @@ TODOs
 * Investigate having a worker thread for each CPU
 * Catch slow-running requests and close them (will require a thread)
 * When max connections is reached temporarially shut down the listener instead of accept()'ing the new connection then immediately close()'ing it.
+* Create some testing framework so I can compare to NGINX, Apache, etc.
 
