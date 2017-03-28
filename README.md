@@ -32,3 +32,10 @@ TODOs
 * When max connections is reached temporarially shut down the listener instead of accept()'ing the new connection then immediately close()'ing it.
 * Create some testing framework so I can compare to NGINX, Apache, etc.
 
+Future Plans
+------------
+
+* Set environment variables
+* Cache commonly requested files in memory
+* Support for CGI/PHP scripts
+* Reverse proxy feature
