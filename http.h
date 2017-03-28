@@ -5,7 +5,6 @@
 
 #define HTTP_VERSION_10       10
 #define HTTP_VERSION_11       11
-#define HTTP_VERSION_20       20
 
 #define PATH_BUFFER_SIZE      1024
 
