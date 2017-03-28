@@ -26,7 +26,7 @@ To make the server as fast as possible I've made the following design decisions:
 TODOs
 -----
 
-* In client sturct, get rid of the 'stage' field and replace with a function pointer to the handler function for the specific stage. This will cut out some branching. Document the stages in client.h
+* In client struct, get rid of the 'stage' field and replace with a function pointer to the appropriate handler function (see client_handlers.c/h). This will cut out some branching. Document the stages in client.h
 * Finish request parsing
 * Investigate having a worker thread for each CPU
 * Catch slow-running requests and close them (will require a thread)
